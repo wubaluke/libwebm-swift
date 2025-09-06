@@ -23,8 +23,9 @@ struct WebMMuxerContext {
   uint64_t next_track_number;
   bool has_video_track;
   bool has_audio_track;
-  
-  WebMMuxerContext() : next_track_number(1), has_video_track(false), has_audio_track(false) {}
+
+  WebMMuxerContext()
+      : next_track_number(1), has_video_track(false), has_audio_track(false) {}
 };
 
 // Helper function for C++11 compatibility
@@ -407,7 +408,8 @@ WebMTrackID webm_muxer_add_video_track(WebMMuxerHandle muxer, uint32_t width,
     return 0;
   }
 
-  // Check if a video track already exists (WebM typically supports only one video track)
+  // Check if a video track already exists (WebM typically supports only one
+  // video track)
   if (context->has_video_track) {
     return 0; // This will cause an unsupportedFormat error in the wrapper
   }
@@ -416,10 +418,8 @@ WebMTrackID webm_muxer_add_video_track(WebMMuxerHandle muxer, uint32_t width,
   uint64_t track_number = context->next_track_number++;
 
   // Add video track to the segment
-  uint64_t track_id = context->segment->AddVideoTrack(static_cast<int>(width),
-                                                      static_cast<int>(height),
-                                                      track_number
-  );
+  uint64_t track_id = context->segment->AddVideoTrack(
+      static_cast<int>(width), static_cast<int>(height), track_number);
 
   if (track_id == 0) {
     return 0; // Failed to add track
@@ -458,10 +458,9 @@ WebMTrackID webm_muxer_add_audio_track(WebMMuxerHandle muxer,
   uint64_t track_number = context->next_track_number++;
 
   // Add audio track to the segment
-  uint64_t track_id = context->segment->AddAudioTrack(
-      static_cast<int>(sampling_frequency), static_cast<int>(channels),
-      track_number
-  );
+  uint64_t track_id =
+      context->segment->AddAudioTrack(static_cast<int>(sampling_frequency),
+                                      static_cast<int>(channels), track_number);
 
   if (track_id == 0) {
     return 0; // Failed to add track
@@ -498,7 +497,7 @@ webm_muxer_write_video_frame(WebMMuxerHandle muxer, WebMTrackID track_id,
   }
 
   // Validate track ID by checking if the track exists
-  mkvmuxer::Track* track = context->segment->GetTrackByNumber(track_id);
+  mkvmuxer::Track *track = context->segment->GetTrackByNumber(track_id);
   if (!track) {
     return WEBM_ERROR_UNSUPPORTED_FORMAT;
   }
@@ -543,7 +542,7 @@ WebMErrorCode webm_muxer_write_audio_frame(WebMMuxerHandle muxer,
   }
 
   // Validate track ID by checking if the track exists
-  mkvmuxer::Track* track = context->segment->GetTrackByNumber(track_id);
+  mkvmuxer::Track *track = context->segment->GetTrackByNumber(track_id);
   if (!track) {
     return WEBM_ERROR_UNSUPPORTED_FORMAT;
   }
