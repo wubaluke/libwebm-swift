@@ -68,7 +68,9 @@ let package = Package(
             dependencies: ["LibWebMSwift"],
             resources: [
                 .copy("sample.webm"),
-                .copy("av1-opus.webm")
+                .copy("av1-opus.webm"),
+                .copy("video.av1"),
+                .copy("audio.opus")
             ]
         )
     ],

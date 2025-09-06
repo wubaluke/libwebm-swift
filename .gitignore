@@ -1,3 +1,4 @@
 .build/
 *.mdb
 workspace-state.json
+.DS_Store

@@ -468,8 +468,30 @@ webm_muxer_write_video_frame(WebMMuxerHandle muxer, WebMTrackID track_id,
   if (!muxer || !frame_data)
     return WEBM_ERROR_INVALID_ARGUMENT;
 
-  // TODO: Implement actual video frame writing
-  return WEBM_ERROR_UNSUPPORTED_FORMAT;
+  auto context = static_cast<WebMMuxerContext *>(muxer);
+  if (!context->segment) {
+    return WEBM_ERROR_INVALID_FILE;
+  }
+
+  // Create a muxer frame following the official pattern
+  mkvmuxer::Frame muxer_frame;
+
+  // Initialize the frame with the data (comme dans l'exemple officiel)
+  if (!muxer_frame.Init(frame_data, frame_size)) {
+    return WEBM_ERROR_OUT_OF_MEMORY;
+  }
+
+  // Set frame properties (comme dans l'exemple officiel)
+  muxer_frame.set_track_number(track_id);
+  muxer_frame.set_timestamp(timestamp_ns);
+  muxer_frame.set_is_key(is_keyframe);
+
+  // Add the frame to the segment (comme dans l'exemple officiel)
+  if (!context->segment->AddGenericFrame(&muxer_frame)) {
+    return WEBM_ERROR_UNSUPPORTED_FORMAT;
+  }
+
+  return WEBM_SUCCESS;
 }
 
 WebMErrorCode webm_muxer_write_audio_frame(WebMMuxerHandle muxer,
@@ -480,8 +502,30 @@ WebMErrorCode webm_muxer_write_audio_frame(WebMMuxerHandle muxer,
   if (!muxer || !frame_data)
     return WEBM_ERROR_INVALID_ARGUMENT;
 
-  // TODO: Implement actual audio frame writing
-  return WEBM_ERROR_UNSUPPORTED_FORMAT;
+  auto context = static_cast<WebMMuxerContext *>(muxer);
+  if (!context->segment) {
+    return WEBM_ERROR_INVALID_FILE;
+  }
+
+  // Create a muxer frame following the official pattern
+  mkvmuxer::Frame muxer_frame;
+
+  // Initialize the frame with the data (comme dans l'exemple officiel)
+  if (!muxer_frame.Init(frame_data, frame_size)) {
+    return WEBM_ERROR_OUT_OF_MEMORY;
+  }
+
+  // Set frame properties (comme dans l'exemple officiel)
+  muxer_frame.set_track_number(track_id);
+  muxer_frame.set_timestamp(timestamp_ns);
+  muxer_frame.set_is_key(false); // Audio frames are typically not keyframes
+
+  // Add the frame to the segment (comme dans l'exemple officiel)
+  if (!context->segment->AddGenericFrame(&muxer_frame)) {
+    return WEBM_ERROR_UNSUPPORTED_FORMAT;
+  }
+
+  return WEBM_SUCCESS;
 }
 
 // Frame reading/extraction implementations
