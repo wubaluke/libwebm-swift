@@ -16,7 +16,7 @@ Add this package to your Swift project using Swift Package Manager:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/your-repo/LibWebMSwift.git", from: "1.0.0")
+    .package(url: "https://github.com/sctg-development/libwebm-swift.git", from: "1.0.0")
 ]
 ```
 
