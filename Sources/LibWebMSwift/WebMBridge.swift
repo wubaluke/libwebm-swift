@@ -1,3 +1,6 @@
+// Copyright (c) 2025, Ronan LE MEILLAT - SCTG Development. All rights reserved.
+// Licensed under the BSD 3-Clause License.
+
 import CLibWebM
 
 // Re-export C types to Swift with public visibility

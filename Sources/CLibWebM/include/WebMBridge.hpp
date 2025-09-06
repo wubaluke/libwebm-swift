@@ -1,6 +1,9 @@
 #ifndef WEBM_BRIDGE_HPP
 #define WEBM_BRIDGE_HPP
 
+// Copyright (c) 2025, Ronan LE MEILLAT - SCTG Development. All rights reserved.
+// Licensed under the BSD 3-Clause License.
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
