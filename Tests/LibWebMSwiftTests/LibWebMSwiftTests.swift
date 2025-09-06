@@ -475,8 +475,8 @@ final class LibWebMSwiftTests: XCTestCase {
     }
 
     func testWebMRealRoundTrip() throws {
-        // Test qui valide la création d'un fichier WebM et sa lecture
-        // sans essayer de copier des frames complexes (ce qui nécessite décodage/réencodage)
+        // Test that validates the creation of a WebM file and its reading
+        // without trying to copy complex frames (which would require decoding/recoding)
         let tempDir = NSTemporaryDirectory()
         let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent(
             "simple_roundtrip_test.webm")
@@ -484,7 +484,7 @@ final class LibWebMSwiftTests: XCTestCase {
         // Clean up any existing file
         try? FileManager.default.removeItem(at: tempFile)
 
-        // === ÉTAPE 1: Analyser le fichier source pour les specs ===
+        // === STEP 1: Analyze the source file for specs ===
 
         let videoParser = try WebMParser(filePath: sampleWebMPath)
         try videoParser.parseHeaders()
@@ -492,7 +492,7 @@ final class LibWebMSwiftTests: XCTestCase {
         let videoTrackInfo = try videoParser.getTrackInfo(trackIndex: 0)
         let videoInfo = try videoParser.getVideoInfo(trackNumber: videoTrackInfo.track_number)
 
-        // === ÉTAPE 2: Créer un fichier WebM avec les mêmes specs ===
+        // === STEP 2: Create a WebM file with the same specs ===
 
         let muxer = try WebMMuxer(filePath: tempFile.path)
 
@@ -502,14 +502,14 @@ final class LibWebMSwiftTests: XCTestCase {
             codecId: "V_VP8"
         )
 
-        // === ÉTAPE 3: Validation que l'extraction fonctionne ===
+        // === STEP 3: Validate that extraction works ===
 
         if (try videoParser.readNextVideoFrame(
             trackId: videoTrackInfo.track_number)) != nil
         {
-            // Ne pas essayer d'écrire la frame extraite (problème de format)
-            // À la place, créer une frame de test minimale
-            let testFrame = Data([0x30, 0x00, 0x00])  // Frame VP8 minimale valide
+            // Do not try to write the extracted frame (format issue)
+            // Instead, create a minimal test frame
+            let testFrame = Data([0x30, 0x00, 0x00])  // Minimal valid VP8 frame
 
             try muxer.writeVideoFrame(
                 trackId: newVideoTrackId,
@@ -524,7 +524,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
         try muxer.finalize()
 
-        // === ÉTAPE 4: Valider le fichier créé ===
+        // === STEP 4: Validate the created file ===
 
         XCTAssertTrue(
             FileManager.default.fileExists(atPath: tempFile.path), "Output file should exist")
@@ -548,8 +548,8 @@ final class LibWebMSwiftTests: XCTestCase {
     }
 
     func testWebMMuxerWithRawFiles() throws {
-        // Test du muxer avec des fichiers bruts extraits par MKVToolNix
-        // Ces fichiers sont dans des formats plus compatibles avec le muxer
+        // Test the muxer with raw files extracted by MKVToolNix
+        // These files are in formats more compatible with the muxer
         let tempDir = NSTemporaryDirectory()
         let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent(
             "muxed_from_raw.webm")
@@ -559,7 +559,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
         do {
 
-            // Vérifier que les fichiers sources existent
+            // Check that the source files exist
             XCTAssertTrue(
                 FileManager.default.fileExists(atPath: videoAV1Path),
                 "AV1 video file should exist")
@@ -567,11 +567,11 @@ final class LibWebMSwiftTests: XCTestCase {
                 FileManager.default.fileExists(atPath: audioOpusPath),
                 "Opus audio file should exist")
 
-            // Obtenir les informations des fichiers sources pour les specs
+            // Get the information from the source files for the specs
             let originalParser = try WebMParser(filePath: av1OpusWebMPath)
             try originalParser.parseHeaders()
 
-            // Trouver les tracks vidéo et audio
+            // Find the video and audio tracks
             let trackCount = try originalParser.getTrackCount()
             var videoTrackNumber: UInt32 = 0
             var audioTrackNumber: UInt32 = 0
@@ -588,11 +588,11 @@ final class LibWebMSwiftTests: XCTestCase {
             let videoInfo = try originalParser.getVideoInfo(trackNumber: videoTrackNumber)
             let audioInfo = try originalParser.getAudioInfo(trackNumber: audioTrackNumber)
 
-            // === ÉTAPE 1: Créer le muxer ===
+            // === STEP 1: Create the muxer ===
 
             let muxer = try WebMMuxer(filePath: tempFile.path)
 
-            // Ajouter les tracks avec les specs originales
+            // Add the tracks with the original specs
             let newVideoTrackId = try muxer.addVideoTrack(
                 width: videoInfo.width,
                 height: videoInfo.height,
@@ -605,17 +605,17 @@ final class LibWebMSwiftTests: XCTestCase {
                 codecId: "A_OPUS"
             )
 
-            // === ÉTAPE 2: Lire et écrire les fichiers bruts ===
-            // Note: Cette approche pourrait fonctionner car les fichiers sont dans des formats "container"
+            // === STEP 2: Read and write the raw files ===
+            // Note: This approach might work because the files are in "container" formats
 
-            // Essayer de lire le fichier AV1 comme données brutes
+            // Try to read the AV1 file as raw data
             let videoData = try Data(contentsOf: URL(fileURLWithPath: videoAV1Path))
             let audioData = try Data(contentsOf: URL(fileURLWithPath: audioOpusPath))
 
-            // Pour un test initial, essayons d'écrire de petites portions
-            // Les fichiers bruts peuvent contenir des headers de container
+            // For an initial test, let's try writing small portions
+            // The raw files may contain container headers
 
-            // Écrire une frame de test vidéo (les premiers bytes pourraient contenir des headers IVF)
+            // Write a test video frame (the first bytes may contain IVF headers)
             let videoChunkSize = min(videoData.count, 50000)  // Premiers 50KB
             let videoChunk = videoData.prefix(videoChunkSize)
 
@@ -626,7 +626,7 @@ final class LibWebMSwiftTests: XCTestCase {
                 isKeyframe: true
             )
 
-            // Écrire une frame de test audio
+            // Write a test audio frame
             let audioChunkSize = min(audioData.count, 5000)  // Premiers 5KB
             let audioChunk = audioData.prefix(audioChunkSize)
 
@@ -638,12 +638,12 @@ final class LibWebMSwiftTests: XCTestCase {
 
             try muxer.finalize()
 
-            // === ÉTAPE 3: Valider le fichier créé ===
+            // === STEP 3: Validate the created file ===
 
             XCTAssertTrue(
                 FileManager.default.fileExists(atPath: tempFile.path), "Output file should exist")
 
-            // Essayer de parser le fichier résultant
+            // Try to parse the resulting file
             let resultParser = try WebMParser(filePath: tempFile.path)
             try resultParser.parseHeaders()
 
@@ -651,27 +651,27 @@ final class LibWebMSwiftTests: XCTestCase {
             XCTAssertEqual(resultTrackCount, 2, "Result should have 2 tracks")
 
         } catch {
-            // Si cela échoue aussi, documenter la limitation et analyser le format
+            // If this also fails, document the limitation and analyze the format
 
-            // Analysons les headers des fichiers pour comprendre le format
+            // Let's analyze the file headers to understand the format
             let videoData = try Data(contentsOf: URL(fileURLWithPath: videoAV1Path))
             let audioData = try Data(contentsOf: URL(fileURLWithPath: audioOpusPath))
 
-            // Analyser les premiers bytes du fichier AV1 (format IVF)
+            // Analyze the first bytes of the AV1 file (IVF format)
             if videoData.count >= 32 {
                 let ivfSignature = videoData.prefix(4)
                 if ivfSignature.starts(with: [0x44, 0x4B, 0x49, 0x46]) {  // "DKIF"
                 }
             }
 
-            // Analyser les premiers bytes du fichier Opus (format Ogg)
+            // Analyze the first bytes of the Opus file (Ogg format)
             if audioData.count >= 32 {
                 let oggSignature = audioData.prefix(4)
                 if oggSignature.starts(with: [0x4F, 0x67, 0x67, 0x53]) {  // "OggS"
                 }
             }
 
-            // Ne pas faire échouer le test - c'est de la recherche sur les limitations du muxer
+            // Do not fail the test - this is research on the muxer's limitations
             // XCTFail("Raw file muxing failed: \(error)")
         }
 
@@ -680,8 +680,8 @@ final class LibWebMSwiftTests: XCTestCase {
     }
 
     func testWebMMuxerOfficialPattern() throws {
-        // Test basé sur l'exemple officiel mkvmuxer_sample.cc
-        // Utilise parser -> frames pures -> muxer (comme dans l'exemple libwebm)
+        // Test based on the official mkvmuxer_sample.cc example
+        // Uses parser -> raw frames -> muxer (as in the libwebm example)
         let tempDir = NSTemporaryDirectory()
         let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent(
             "official_pattern_test.webm")
@@ -691,7 +691,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
         do {
 
-            // === ÉTAPE 1: Parser le fichier source (comme dans l'exemple) ===
+            // === STEP 1: Parse the source file (as in the example) ===
 
             let sourceParser = try WebMParser(filePath: sampleWebMPath)
             try sourceParser.parseHeaders()
@@ -704,7 +704,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
             let videoInfo = try sourceParser.getVideoInfo(trackNumber: videoTrackInfo.track_number)
 
-            // === ÉTAPE 2: Créer le muxer (comme dans l'exemple) ===
+            // === STEP 2: Create the muxer (as in the example) ===
 
             let muxer = try WebMMuxer(filePath: tempFile.path)
 
@@ -718,8 +718,8 @@ final class LibWebMSwiftTests: XCTestCase {
                 codecId: codecIdString
             )
 
-            // === ÉTAPE 3: Extraire et muxer les frames (pattern officiel) ===
-            // L'exemple officiel montre : parser.readFrame() -> muxer.writeFrame()
+            // === STEP 3: Extract and mux the frames (official pattern) ===
+            // The official example shows: parser.readFrame() -> muxer.writeFrame()
 
             var framesWritten = 0
             let maxFramesToWrite = 3  // Limiter pour le test
@@ -729,8 +729,8 @@ final class LibWebMSwiftTests: XCTestCase {
                     trackId: videoTrackInfo.track_number)
                 {
 
-                    // Utiliser les données exactement comme extraites par notre parser
-                    // (qui utilise le même mécanisme que l'exemple officiel)
+                    // Use the data exactly as extracted by our parser
+                    // (which uses the same mechanism as the official example)
                     try muxer.writeVideoFrame(
                         trackId: newVideoTrackId,
                         frameData: frameData.data,
@@ -744,11 +744,11 @@ final class LibWebMSwiftTests: XCTestCase {
                 }
             }
 
-            // === ÉTAPE 4: Finaliser (comme dans l'exemple) ===
+            // === STEP 4: Finalize (as in the example) ===
 
             try muxer.finalize()
 
-            // === ÉTAPE 5: Valider le fichier créé ===
+            // === STEP 5: Validate the created file ===
 
             XCTAssertTrue(
                 FileManager.default.fileExists(atPath: tempFile.path),
@@ -756,7 +756,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
             XCTAssertGreaterThan(framesWritten, 0, "Should have written at least one frame")
 
-            // Parser le fichier résultant pour validation
+            // Parse the resulting file for validation
             let resultParser = try WebMParser(filePath: tempFile.path)
             try resultParser.parseHeaders()
 
@@ -772,9 +772,9 @@ final class LibWebMSwiftTests: XCTestCase {
             XCTAssertEqual(resultVideoInfo.height, videoInfo.height, "Height should match")
 
         } catch {
-            // Si cela échoue, analysons le problème plus en détail
+            // If this fails, let's analyze the problem in more detail
 
-            // Ne pas faire échouer le test pour l'instant - c'est de la recherche
+            // Do not fail the test for now - this is research
             // XCTFail("Official pattern muxer should work, but failed with: \(error)")
         }
 
@@ -783,7 +783,7 @@ final class LibWebMSwiftTests: XCTestCase {
     }
 
     func testWebMFrameExtractionWithTiming() throws {
-        // Test simple d'extraction avec timing pour valider le processus
+        // Simple extraction test with timing to validate the process
         let videoParser = try WebMParser(filePath: sampleWebMPath)
         try videoParser.parseHeaders()
 
@@ -809,7 +809,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
         XCTAssertGreaterThan(videoFramesExtracted, 0, "Should extract video frames")
 
-        // Test audio avec AV1+Opus
+        // Audio test with AV1+Opus
         let audioParser = try WebMParser(filePath: av1OpusWebMPath)
         try audioParser.parseHeaders()
 
@@ -1042,7 +1042,7 @@ final class LibWebMSwiftTests: XCTestCase {
     // MARK: - Advanced Muxer Tests
 
     func testWebMMuxerVideoOnly() throws {
-        // Test création d'un fichier WebM vidéo seulement
+        // Test creation of a video-only WebM file
         let tempDir = NSTemporaryDirectory()
         let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent("video_only_test.webm")
 
@@ -1050,27 +1050,27 @@ final class LibWebMSwiftTests: XCTestCase {
 
         let muxer = try WebMMuxer(filePath: tempFile.path)
 
-        // Ajouter seulement une track vidéo
+        // Add only a video track
         let videoTrackId = try muxer.addVideoTrack(
             width: 1920,
             height: 1080,
             codecId: "V_VP9"
         )
 
-        // Écrire quelques frames de test
+        // Write a few test frames
         for i in 0..<5 {
             let testFrame = Data(repeating: UInt8(i), count: 1000 + i * 100)
             try muxer.writeVideoFrame(
                 trackId: videoTrackId,
                 frameData: testFrame,
                 timestampNs: UInt64(i * 33_333_333),  // ~30fps
-                isKeyframe: i == 0  // Première frame est keyframe
+                isKeyframe: i == 0  // First frame is keyframe
             )
         }
 
         try muxer.finalize()
 
-        // Valider le fichier créé
+        // Validate the created file
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
 
         let parser = try WebMParser(filePath: tempFile.path)
@@ -1090,7 +1090,7 @@ final class LibWebMSwiftTests: XCTestCase {
     }
 
     func testWebMMuxerAudioOnly() throws {
-        // Test création d'un fichier WebM audio seulement
+        // Test creation of an audio-only WebM file
         let tempDir = NSTemporaryDirectory()
         let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent("audio_only_test.webm")
 
@@ -1098,14 +1098,14 @@ final class LibWebMSwiftTests: XCTestCase {
 
         let muxer = try WebMMuxer(filePath: tempFile.path)
 
-        // Ajouter seulement une track audio
+        // Add only an audio track
         let audioTrackId = try muxer.addAudioTrack(
             samplingFrequency: 48000,
             channels: 2,
             codecId: "A_OPUS"
         )
 
-        // Écrire quelques frames audio de test
+        // Write a few test audio frames
         for i in 0..<10 {
             let testFrame = Data(repeating: UInt8(i + 50), count: 100 + i * 10)
             try muxer.writeAudioFrame(
@@ -1117,7 +1117,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
         try muxer.finalize()
 
-        // Valider le fichier créé
+        // Validate the created file
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
 
         let parser = try WebMParser(filePath: tempFile.path)
@@ -1146,15 +1146,15 @@ final class LibWebMSwiftTests: XCTestCase {
 
         let muxer = try WebMMuxer(filePath: tempFile.path)
 
-        // Ajouter une première track vidéo (devrait réussir)
+        // Add a first video track (should succeed)
         let videoTrack1 = try muxer.addVideoTrack(
             width: 1920,
             height: 1080,
             codecId: "V_VP8"
         )
 
-        // Essayer d'ajouter une deuxième track vidéo
-        // Le format WebM ne supporte généralement qu'une seule track vidéo
+        // Try to add a second video track
+        // The WebM format generally supports only one video track
         XCTAssertThrowsError(
             try muxer.addVideoTrack(
                 width: 1280,
@@ -1162,11 +1162,11 @@ final class LibWebMSwiftTests: XCTestCase {
                 codecId: "V_VP9"
             )
         ) { error in
-            // Vérifier que l'erreur indique que ce n'est pas supporté
+            // Check that the error indicates this is not supported
             XCTAssertEqual(error as? WebMError, .unsupportedFormat)
         }
 
-        // Écrire une frame pour la track valide
+        // Write a frame for the valid track
         let frame1 = Data(repeating: UInt8(100), count: 2000)
         try muxer.writeVideoFrame(
             trackId: videoTrack1,
@@ -1177,7 +1177,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
         try muxer.finalize()
 
-        // Valider le fichier créé
+        // Validate the created file
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
 
         let parser = try WebMParser(filePath: tempFile.path)
@@ -1193,7 +1193,7 @@ final class LibWebMSwiftTests: XCTestCase {
     }
 
     func testWebMMuxerMixedTracks() throws {
-        // Test création d'un fichier WebM avec vidéo + audio + multiples tracks
+        // Test creation of a WebM file with video + audio + multiple tracks
         let tempDir = NSTemporaryDirectory()
         let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent(
             "mixed_tracks_test.webm")
@@ -1202,7 +1202,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
         let muxer = try WebMMuxer(filePath: tempFile.path)
 
-        // Ajouter différents types de tracks
+        // Add different types of tracks
         let videoTrack = try muxer.addVideoTrack(
             width: 854,
             height: 480,
@@ -1221,7 +1221,7 @@ final class LibWebMSwiftTests: XCTestCase {
             codecId: "A_VORBIS"
         )
 
-        // Écrire des frames entrelacées
+        // Write interleaved frames
         for i in 0..<4 {
             let timestamp = UInt64(i * 25_000_000)  // 40fps base
 
@@ -1253,7 +1253,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
         try muxer.finalize()
 
-        // Valider le fichier créé
+        // Validate the created file
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
 
         let parser = try WebMParser(filePath: tempFile.path)
@@ -1281,7 +1281,7 @@ final class LibWebMSwiftTests: XCTestCase {
     }
 
     func testWebMMuxerTimestampOrdering() throws {
-        // Test que le muxer gère correctement l'ordre des timestamps
+        // Test that the muxer correctly handles timestamp ordering
         let tempDir = NSTemporaryDirectory()
         let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent("timestamp_test.webm")
 
@@ -1295,7 +1295,7 @@ final class LibWebMSwiftTests: XCTestCase {
             codecId: "V_VP8"
         )
 
-        // Écrire des frames avec des timestamps dans l'ordre
+        // Write frames with timestamps in order
         let timestamps: [UInt64] = [0, 33_333_333, 66_666_666, 100_000_000, 133_333_333]
 
         for (index, timestamp) in timestamps.enumerated() {
@@ -1310,7 +1310,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
         try muxer.finalize()
 
-        // Valider que le fichier est créé et parseable
+        // Validate that the file is created and parseable
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
 
         let parser = try WebMParser(filePath: tempFile.path)
@@ -1324,7 +1324,7 @@ final class LibWebMSwiftTests: XCTestCase {
     }
 
     func testWebMMuxerLargeFrames() throws {
-        // Test avec des frames de taille importante
+        // Test with large frame sizes
         let tempDir = NSTemporaryDirectory()
         let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent(
             "large_frames_test.webm")
@@ -1339,7 +1339,7 @@ final class LibWebMSwiftTests: XCTestCase {
             codecId: "V_VP9"
         )
 
-        // Écrire quelques frames de grande taille (simule de la 4K)
+        // Write a few large frames (simulate 4K)
         for i in 0..<2 {
             // Frame simulée de ~1MB
             let largeFrame = Data(repeating: UInt8(i), count: 1_000_000)
@@ -1353,7 +1353,7 @@ final class LibWebMSwiftTests: XCTestCase {
 
         try muxer.finalize()
 
-        // Valider le fichier
+        // Validate the file
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
 
         let parser = try WebMParser(filePath: tempFile.path)
@@ -1369,7 +1369,7 @@ final class LibWebMSwiftTests: XCTestCase {
     }
 
     func testWebMMuxerErrorHandling() throws {
-        // Test gestion d'erreurs du muxer
+        // Test muxer error handling
         let tempDir = NSTemporaryDirectory()
         let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent("error_test.webm")
 
@@ -1383,7 +1383,7 @@ final class LibWebMSwiftTests: XCTestCase {
             codecId: "V_VP8"
         )
 
-        // Test écriture avec track ID invalide
+        // Test writing with invalid track ID
         let testFrame = Data([0x01, 0x02, 0x03])
         XCTAssertThrowsError(
             try muxer.writeVideoFrame(
@@ -1393,12 +1393,12 @@ final class LibWebMSwiftTests: XCTestCase {
                 isKeyframe: true
             )
         ) { error in
-            // Track ID invalide peut retourner différents types d'erreurs selon libwebm
+            // Invalid track ID may return different types of errors depending on libwebm
             XCTAssertTrue(error is WebMError, "Should throw a WebMError")
         }
 
-        // Test écriture avec données vides
-        // Note: libwebm retourne unsupportedFormat pour les données vides
+        // Test writing with empty data
+        // Note: libwebm returns unsupportedFormat for empty data
         XCTAssertThrowsError(
             try muxer.writeVideoFrame(
                 trackId: videoTrack,
@@ -1407,11 +1407,11 @@ final class LibWebMSwiftTests: XCTestCase {
                 isKeyframe: true
             )
         ) { error in
-            // Vérifier que l'erreur est bien unsupportedFormat
+            // Check that the error is indeed unsupportedFormat
             XCTAssertEqual(error as? WebMError, .unsupportedFormat)
         }
 
-        // Écrire une frame valide pour finaliser
+        // Write a valid frame to finalize
         try muxer.writeVideoFrame(
             trackId: videoTrack,
             frameData: testFrame,
