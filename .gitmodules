@@ -1,0 +1,3 @@
+[submodule "Sources/libwebm"]
+	path = Sources/libwebm
+	url = https://github.com/webmproject/libwebm/
