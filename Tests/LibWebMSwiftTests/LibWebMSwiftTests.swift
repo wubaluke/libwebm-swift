@@ -1038,4 +1038,387 @@ final class LibWebMSwiftTests: XCTestCase {
         XCTAssertGreaterThan(trackCount1, 0, "VP8 file should have tracks")
         XCTAssertGreaterThan(trackCount2, 0, "AV1+Opus file should have tracks")
     }
+
+    // MARK: - Advanced Muxer Tests
+
+    func testWebMMuxerVideoOnly() throws {
+        // Test création d'un fichier WebM vidéo seulement
+        let tempDir = NSTemporaryDirectory()
+        let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent("video_only_test.webm")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+        
+        let muxer = try WebMMuxer(filePath: tempFile.path)
+        
+        // Ajouter seulement une track vidéo
+        let videoTrackId = try muxer.addVideoTrack(
+            width: 1920,
+            height: 1080,
+            codecId: "V_VP9"
+        )
+        
+        // Écrire quelques frames de test
+        for i in 0..<5 {
+            let testFrame = Data(repeating: UInt8(i), count: 1000 + i * 100)
+            try muxer.writeVideoFrame(
+                trackId: videoTrackId,
+                frameData: testFrame,
+                timestampNs: UInt64(i * 33_333_333), // ~30fps
+                isKeyframe: i == 0 // Première frame est keyframe
+            )
+        }
+        
+        try muxer.finalize()
+        
+        // Valider le fichier créé
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
+        
+        let parser = try WebMParser(filePath: tempFile.path)
+        try parser.parseHeaders()
+        
+        let trackCount = try parser.getTrackCount()
+        XCTAssertEqual(trackCount, 1, "Should have exactly 1 video track")
+        
+        let trackInfo = try parser.getTrackInfo(trackIndex: 0)
+        XCTAssertEqual(trackInfo.track_type, 1, "Should be video track")
+        
+        let videoInfo = try parser.getVideoInfo(trackNumber: trackInfo.track_number)
+        XCTAssertEqual(videoInfo.width, 1920, "Width should match")
+        XCTAssertEqual(videoInfo.height, 1080, "Height should match")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+    }
+
+    func testWebMMuxerAudioOnly() throws {
+        // Test création d'un fichier WebM audio seulement
+        let tempDir = NSTemporaryDirectory()
+        let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent("audio_only_test.webm")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+        
+        let muxer = try WebMMuxer(filePath: tempFile.path)
+        
+        // Ajouter seulement une track audio
+        let audioTrackId = try muxer.addAudioTrack(
+            samplingFrequency: 48000,
+            channels: 2,
+            codecId: "A_OPUS"
+        )
+        
+        // Écrire quelques frames audio de test
+        for i in 0..<10 {
+            let testFrame = Data(repeating: UInt8(i + 50), count: 100 + i * 10)
+            try muxer.writeAudioFrame(
+                trackId: audioTrackId,
+                frameData: testFrame,
+                timestampNs: UInt64(i * 20_000_000) // 20ms par frame
+            )
+        }
+        
+        try muxer.finalize()
+        
+        // Valider le fichier créé
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
+        
+        let parser = try WebMParser(filePath: tempFile.path)
+        try parser.parseHeaders()
+        
+        let trackCount = try parser.getTrackCount()
+        XCTAssertEqual(trackCount, 1, "Should have exactly 1 audio track")
+        
+        let trackInfo = try parser.getTrackInfo(trackIndex: 0)
+        XCTAssertEqual(trackInfo.track_type, 2, "Should be audio track")
+        
+        let audioInfo = try parser.getAudioInfo(trackNumber: trackInfo.track_number)
+        XCTAssertEqual(audioInfo.sampling_frequency, 48000, "Sample rate should match")
+        XCTAssertEqual(audioInfo.channels, 2, "Channels should match")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+    }
+
+    func testWebMMuxerMultipleVideoTracks() throws {
+        // Note: WebM format typically supports only one video track per file
+        // This test validates that the muxer properly handles this limitation
+        let tempDir = NSTemporaryDirectory()
+        let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent("multi_video_test.webm")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+        
+        let muxer = try WebMMuxer(filePath: tempFile.path)
+        
+        // Ajouter une première track vidéo (devrait réussir)
+        let videoTrack1 = try muxer.addVideoTrack(
+            width: 1920,
+            height: 1080,
+            codecId: "V_VP8"
+        )
+        
+        // Essayer d'ajouter une deuxième track vidéo
+        // Le format WebM ne supporte généralement qu'une seule track vidéo
+        XCTAssertThrowsError(
+            try muxer.addVideoTrack(
+                width: 1280,
+                height: 720,
+                codecId: "V_VP9"
+            )
+        ) { error in
+            // Vérifier que l'erreur indique que ce n'est pas supporté
+            XCTAssertEqual(error as? WebMError, .unsupportedFormat)
+        }
+        
+        // Écrire une frame pour la track valide
+        let frame1 = Data(repeating: UInt8(100), count: 2000)
+        try muxer.writeVideoFrame(
+            trackId: videoTrack1,
+            frameData: frame1,
+            timestampNs: 0,
+            isKeyframe: true
+        )
+        
+        try muxer.finalize()
+        
+        // Valider le fichier créé
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
+        
+        let parser = try WebMParser(filePath: tempFile.path)
+        try parser.parseHeaders()
+        
+        let trackCount = try parser.getTrackCount()
+        XCTAssertEqual(trackCount, 1, "Should have exactly 1 video track")
+        
+        let trackInfo = try parser.getTrackInfo(trackIndex: 0)
+        XCTAssertEqual(trackInfo.track_type, 1, "Should be video track")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+    }
+
+    func testWebMMuxerMixedTracks() throws {
+        // Test création d'un fichier WebM avec vidéo + audio + multiples tracks
+        let tempDir = NSTemporaryDirectory()
+        let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent("mixed_tracks_test.webm")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+        
+        let muxer = try WebMMuxer(filePath: tempFile.path)
+        
+        // Ajouter différents types de tracks
+        let videoTrack = try muxer.addVideoTrack(
+            width: 854,
+            height: 480,
+            codecId: "V_VP8"
+        )
+        
+        let audioTrack1 = try muxer.addAudioTrack(
+            samplingFrequency: 44100,
+            channels: 2,
+            codecId: "A_OPUS"
+        )
+        
+        let audioTrack2 = try muxer.addAudioTrack(
+            samplingFrequency: 48000,
+            channels: 1,
+            codecId: "A_VORBIS"
+        )
+        
+        // Écrire des frames entrelacées
+        for i in 0..<4 {
+            let timestamp = UInt64(i * 25_000_000) // 40fps base
+            
+            // Frame vidéo
+            let videoFrame = Data(repeating: UInt8(i + 10), count: 1200)
+            try muxer.writeVideoFrame(
+                trackId: videoTrack,
+                frameData: videoFrame,
+                timestampNs: timestamp,
+                isKeyframe: i % 2 == 0
+            )
+            
+            // Frame audio 1
+            let audioFrame1 = Data(repeating: UInt8(i + 50), count: 200)
+            try muxer.writeAudioFrame(
+                trackId: audioTrack1,
+                frameData: audioFrame1,
+                timestampNs: timestamp
+            )
+            
+            // Frame audio 2
+            let audioFrame2 = Data(repeating: UInt8(i + 100), count: 150)
+            try muxer.writeAudioFrame(
+                trackId: audioTrack2,
+                frameData: audioFrame2,
+                timestampNs: timestamp
+            )
+        }
+        
+        try muxer.finalize()
+        
+        // Valider le fichier créé
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
+        
+        let parser = try WebMParser(filePath: tempFile.path)
+        try parser.parseHeaders()
+        
+        let trackCount = try parser.getTrackCount()
+        XCTAssertEqual(trackCount, 3, "Should have exactly 3 tracks (1 video + 2 audio)")
+        
+        var videoTracks = 0
+        var audioTracks = 0
+        
+        for i in 0..<trackCount {
+            let trackInfo = try parser.getTrackInfo(trackIndex: i)
+            if trackInfo.track_type == 1 {
+                videoTracks += 1
+            } else if trackInfo.track_type == 2 {
+                audioTracks += 1
+            }
+        }
+        
+        XCTAssertEqual(videoTracks, 1, "Should have 1 video track")
+        XCTAssertEqual(audioTracks, 2, "Should have 2 audio tracks")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+    }
+
+    func testWebMMuxerTimestampOrdering() throws {
+        // Test que le muxer gère correctement l'ordre des timestamps
+        let tempDir = NSTemporaryDirectory()
+        let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent("timestamp_test.webm")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+        
+        let muxer = try WebMMuxer(filePath: tempFile.path)
+        
+        let videoTrack = try muxer.addVideoTrack(
+            width: 640,
+            height: 360,
+            codecId: "V_VP8"
+        )
+        
+        // Écrire des frames avec des timestamps dans l'ordre
+        let timestamps: [UInt64] = [0, 33_333_333, 66_666_666, 100_000_000, 133_333_333]
+        
+        for (index, timestamp) in timestamps.enumerated() {
+            let frame = Data(repeating: UInt8(index), count: 800)
+            try muxer.writeVideoFrame(
+                trackId: videoTrack,
+                frameData: frame,
+                timestampNs: timestamp,
+                isKeyframe: index == 0
+            )
+        }
+        
+        try muxer.finalize()
+        
+        // Valider que le fichier est créé et parseable
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
+        
+        let parser = try WebMParser(filePath: tempFile.path)
+        try parser.parseHeaders()
+        
+        let duration = try parser.getDuration()
+        XCTAssertGreaterThan(duration, 0.1, "Duration should be at least 100ms")
+        XCTAssertLessThan(duration, 1.0, "Duration should be less than 1 second")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+    }
+
+    func testWebMMuxerLargeFrames() throws {
+        // Test avec des frames de taille importante
+        let tempDir = NSTemporaryDirectory()
+        let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent("large_frames_test.webm")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+        
+        let muxer = try WebMMuxer(filePath: tempFile.path)
+        
+        let videoTrack = try muxer.addVideoTrack(
+            width: 3840,
+            height: 2160,
+            codecId: "V_VP9"
+        )
+        
+        // Écrire quelques frames de grande taille (simule de la 4K)
+        for i in 0..<2 {
+            // Frame simulée de ~1MB
+            let largeFrame = Data(repeating: UInt8(i), count: 1_000_000)
+            try muxer.writeVideoFrame(
+                trackId: videoTrack,
+                frameData: largeFrame,
+                timestampNs: UInt64(i * 50_000_000), // 20fps
+                isKeyframe: true // Toutes keyframes pour la simplicité
+            )
+        }
+        
+        try muxer.finalize()
+        
+        // Valider le fichier
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempFile.path))
+        
+        let parser = try WebMParser(filePath: tempFile.path)
+        try parser.parseHeaders()
+        
+        let trackInfo = try parser.getTrackInfo(trackIndex: 0)
+        let videoInfo = try parser.getVideoInfo(trackNumber: trackInfo.track_number)
+        
+        XCTAssertEqual(videoInfo.width, 3840, "4K width should be preserved")
+        XCTAssertEqual(videoInfo.height, 2160, "4K height should be preserved")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+    }
+
+    func testWebMMuxerErrorHandling() throws {
+        // Test gestion d'erreurs du muxer
+        let tempDir = NSTemporaryDirectory()
+        let tempFile = URL(fileURLWithPath: tempDir).appendingPathComponent("error_test.webm")
+        
+        try? FileManager.default.removeItem(at: tempFile)
+        
+        let muxer = try WebMMuxer(filePath: tempFile.path)
+        
+        let videoTrack = try muxer.addVideoTrack(
+            width: 320,
+            height: 240,
+            codecId: "V_VP8"
+        )
+        
+        // Test écriture avec track ID invalide
+        let testFrame = Data([0x01, 0x02, 0x03])
+        XCTAssertThrowsError(
+            try muxer.writeVideoFrame(
+                trackId: 999, // ID invalide
+                frameData: testFrame,
+                timestampNs: 0,
+                isKeyframe: true
+            )
+        ) { error in
+            // Track ID invalide peut retourner différents types d'erreurs selon libwebm
+            XCTAssertTrue(error is WebMError, "Should throw a WebMError")
+        }
+        
+        // Test écriture avec données vides
+        // Note: libwebm retourne unsupportedFormat pour les données vides
+        XCTAssertThrowsError(
+            try muxer.writeVideoFrame(
+                trackId: videoTrack,
+                frameData: Data(), // Données vides
+                timestampNs: 0,
+                isKeyframe: true
+            )
+        ) { error in
+            // Vérifier que l'erreur est bien unsupportedFormat
+            XCTAssertEqual(error as? WebMError, .unsupportedFormat)
+        }
+        
+        // Écrire une frame valide pour finaliser
+        try muxer.writeVideoFrame(
+            trackId: videoTrack,
+            frameData: testFrame,
+            timestampNs: 0,
+            isKeyframe: true
+        )
+        
+        try muxer.finalize()
+        
+        try? FileManager.default.removeItem(at: tempFile)
+    }
 }

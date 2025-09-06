@@ -20,6 +20,11 @@ struct WebMParserContext {
 struct WebMMuxerContext {
   std::unique_ptr<mkvmuxer::MkvWriter> writer;
   std::unique_ptr<mkvmuxer::Segment> segment;
+  uint64_t next_track_number;
+  bool has_video_track;
+  bool has_audio_track;
+  
+  WebMMuxerContext() : next_track_number(1), has_video_track(false), has_audio_track(false) {}
 };
 
 // Helper function for C++11 compatibility
@@ -402,15 +407,26 @@ WebMTrackID webm_muxer_add_video_track(WebMMuxerHandle muxer, uint32_t width,
     return 0;
   }
 
+  // Check if a video track already exists (WebM typically supports only one video track)
+  if (context->has_video_track) {
+    return 0; // This will cause an unsupportedFormat error in the wrapper
+  }
+
+  // Use dynamic track number
+  uint64_t track_number = context->next_track_number++;
+
   // Add video track to the segment
   uint64_t track_id = context->segment->AddVideoTrack(static_cast<int>(width),
                                                       static_cast<int>(height),
-                                                      1 // track number
+                                                      track_number
   );
 
   if (track_id == 0) {
     return 0; // Failed to add track
   }
+
+  // Mark that we now have a video track
+  context->has_video_track = true;
 
   // Get the video track to set codec
   mkvmuxer::VideoTrack *video_track = static_cast<mkvmuxer::VideoTrack *>(
@@ -438,10 +454,13 @@ WebMTrackID webm_muxer_add_audio_track(WebMMuxerHandle muxer,
     return 0;
   }
 
+  // Use dynamic track number
+  uint64_t track_number = context->next_track_number++;
+
   // Add audio track to the segment
   uint64_t track_id = context->segment->AddAudioTrack(
       static_cast<int>(sampling_frequency), static_cast<int>(channels),
-      2 // track number
+      track_number
   );
 
   if (track_id == 0) {
@@ -468,9 +487,20 @@ webm_muxer_write_video_frame(WebMMuxerHandle muxer, WebMTrackID track_id,
   if (!muxer || !frame_data)
     return WEBM_ERROR_INVALID_ARGUMENT;
 
+  // Check for empty frame data
+  if (frame_size == 0) {
+    return WEBM_ERROR_UNSUPPORTED_FORMAT;
+  }
+
   auto context = static_cast<WebMMuxerContext *>(muxer);
   if (!context->segment) {
     return WEBM_ERROR_INVALID_FILE;
+  }
+
+  // Validate track ID by checking if the track exists
+  mkvmuxer::Track* track = context->segment->GetTrackByNumber(track_id);
+  if (!track) {
+    return WEBM_ERROR_UNSUPPORTED_FORMAT;
   }
 
   // Create a muxer frame following the official pattern
@@ -502,9 +532,20 @@ WebMErrorCode webm_muxer_write_audio_frame(WebMMuxerHandle muxer,
   if (!muxer || !frame_data)
     return WEBM_ERROR_INVALID_ARGUMENT;
 
+  // Check for empty frame data
+  if (frame_size == 0) {
+    return WEBM_ERROR_UNSUPPORTED_FORMAT;
+  }
+
   auto context = static_cast<WebMMuxerContext *>(muxer);
   if (!context->segment) {
     return WEBM_ERROR_INVALID_FILE;
+  }
+
+  // Validate track ID by checking if the track exists
+  mkvmuxer::Track* track = context->segment->GetTrackByNumber(track_id);
+  if (!track) {
+    return WEBM_ERROR_UNSUPPORTED_FORMAT;
   }
 
   // Create a muxer frame following the official pattern
