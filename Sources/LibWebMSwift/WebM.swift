@@ -105,6 +105,75 @@ public class WebMParser {
         try WebMError.check(result)
         return info
     }
+
+    /// Read the next video frame from the WebM file
+    /// - Parameter trackId: The track ID to read from
+    /// - Returns: Frame data and metadata, or nil if no more frames
+    /// - Throws: WebMError if reading fails
+    public func readNextVideoFrame(trackId: WebMTrackID) throws -> WebMFrameData? {
+        guard let handle = handle else {
+            throw WebMError.invalidArgument
+        }
+
+        var frame = WebMFrame()
+        let result = webm_parser_read_next_video_frame(handle, trackId, &frame)
+
+        if result == WEBM_ERROR_INVALID_FILE {
+            return nil  // No more frames
+        }
+
+        try WebMError.check(result)
+
+        defer {
+            webm_frame_free(&frame)
+        }
+
+        let data = Data(bytes: frame.data, count: Int(frame.size))
+
+        return WebMFrameData(
+            data: data,
+            timestampNs: frame.timestamp_ns,
+            isKeyframe: frame.is_keyframe
+        )
+    }
+
+    /// Read the next audio frame from the WebM file
+    /// - Parameter trackId: The track ID to read from
+    /// - Returns: Frame data and metadata, or nil if no more frames
+    /// - Throws: WebMError if reading fails
+    public func readNextAudioFrame(trackId: WebMTrackID) throws -> WebMFrameData? {
+        guard let handle = handle else {
+            throw WebMError.invalidArgument
+        }
+
+        var frame = WebMFrame()
+        let result = webm_parser_read_next_audio_frame(handle, trackId, &frame)
+
+        if result == WEBM_ERROR_INVALID_FILE {
+            return nil  // No more frames
+        }
+
+        try WebMError.check(result)
+
+        defer {
+            webm_frame_free(&frame)
+        }
+
+        let data = Data(bytes: frame.data, count: Int(frame.size))
+
+        return WebMFrameData(
+            data: data,
+            timestampNs: frame.timestamp_ns,
+            isKeyframe: frame.is_keyframe
+        )
+    }
+}
+
+/// Frame data extracted from WebM file
+public struct WebMFrameData {
+    public let data: Data
+    public let timestampNs: UInt64
+    public let isKeyframe: Bool
 }
 
 /// Swift wrapper for WebM muxing functionality

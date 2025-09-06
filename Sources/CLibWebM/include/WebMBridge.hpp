@@ -102,6 +102,27 @@ WebMErrorCode webm_muxer_write_audio_frame(WebMMuxerHandle muxer,
                                            size_t frame_size,
                                            uint64_t timestamp_ns);
 
+// Frame reading/extraction
+typedef struct {
+  uint8_t *data;
+  size_t size;
+  uint64_t timestamp_ns;
+  bool is_keyframe;
+} WebMFrame;
+
+WebMErrorCode webm_parser_read_next_video_frame(WebMParserHandle parser,
+                                                WebMTrackID track_id,
+                                                WebMFrame *frame);
+
+WebMErrorCode webm_parser_read_next_audio_frame(WebMParserHandle parser,
+                                                WebMTrackID track_id,
+                                                WebMFrame *frame);
+
+WebMErrorCode webm_parser_seek_to_time(WebMParserHandle parser,
+                                       double time_seconds);
+
+void webm_frame_free(WebMFrame *frame);
+
 // Callback-based I/O for streaming
 typedef struct {
   void *context;

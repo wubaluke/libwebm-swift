@@ -15,12 +15,41 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "CLibWebM",
+            name: "libwebm",
             dependencies: [],
+            path: "Sources/libwebm",
+            sources: [
+                "mkvparser/mkvparser.cc",
+                "mkvparser/mkvreader.cc",
+                "mkvmuxer/mkvmuxer.cc",
+                "mkvmuxer/mkvmuxerutil.cc",
+                "mkvmuxer/mkvwriter.cc",
+                "common/webm_endian.cc"
+            ],
+            publicHeadersPath: ".",
+            cxxSettings: [
+                .headerSearchPath("."),
+                .headerSearchPath("mkvparser"),
+                .headerSearchPath("mkvmuxer"),
+                .headerSearchPath("common"),
+                .define("MKVPARSER_HEADER_ONLY", to: "0"),
+                .define("MKVMUXER_HEADER_ONLY", to: "0"),
+                .define("_LIBCPP_DISABLE_AVAILABILITY", to: "1")
+            ],
+            linkerSettings: [
+                .linkedLibrary("c++")
+            ]
+        ),
+        .target(
+            name: "CLibWebM",
+            dependencies: ["libwebm"],
             path: "Sources/CLibWebM",
             publicHeadersPath: "include",
             cxxSettings: [
                 .headerSearchPath("../libwebm"),
+                .headerSearchPath("../libwebm/mkvparser"),
+                .headerSearchPath("../libwebm/mkvmuxer"),
+                .headerSearchPath("../libwebm/common"),
                 .define("MKVPARSER_HEADER_ONLY", to: "0"),
                 .define("MKVMUXER_HEADER_ONLY", to: "0"),
                 .define("_LIBCPP_DISABLE_AVAILABILITY", to: "1")
@@ -34,11 +63,12 @@ let package = Package(
             dependencies: ["CLibWebM"],
             path: "Sources/LibWebMSwift"
         ),
-        .testTarget(
+                .testTarget(
             name: "LibWebMSwiftTests",
             dependencies: ["LibWebMSwift"],
             resources: [
-                .copy("sample.webm")
+                .copy("sample.webm"),
+                .copy("av1-opus.webm")
             ]
         )
     ],
