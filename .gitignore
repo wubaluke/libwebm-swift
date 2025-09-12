@@ -2,3 +2,5 @@
 *.mdb
 workspace-state.json
 .DS_Store
+Build/
+mkvalidator

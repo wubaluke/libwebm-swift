@@ -561,7 +561,7 @@ WebMErrorCode webm_muxer_write_audio_frame(WebMMuxerHandle muxer,
   // Set frame properties (comme dans l'exemple officiel)
   muxer_frame.set_track_number(track_id);
   muxer_frame.set_timestamp(timestamp_ns);
-  muxer_frame.set_is_key(false); // Audio frames are typically not keyframes
+  muxer_frame.set_is_key(true); // Audio frames should be keyframes
 
   // Add the frame to the segment (comme dans l'exemple officiel)
   if (!context->segment->AddGenericFrame(&muxer_frame)) {

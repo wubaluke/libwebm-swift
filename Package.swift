@@ -5,13 +5,16 @@ let package = Package(
     name: "LibWebMSwift",
     platforms: [
         .iOS(.v13),
-        .macOS(.v10_15)
+        .macOS(.v10_15),
     ],
     products: [
         .library(
             name: "LibWebMSwift",
             targets: ["LibWebMSwift"]
         )
+    ],
+    dependencies: [
+        .package(url: "https://github.com/alta/swift-opus.git", from: "0.0.0")
     ],
     targets: [
         .target(
@@ -24,7 +27,7 @@ let package = Package(
                 "mkvmuxer/mkvmuxer.cc",
                 "mkvmuxer/mkvmuxerutil.cc",
                 "mkvmuxer/mkvwriter.cc",
-                "common/webm_endian.cc"
+                "common/webm_endian.cc",
             ],
             publicHeadersPath: ".",
             cxxSettings: [
@@ -34,7 +37,7 @@ let package = Package(
                 .headerSearchPath("common"),
                 .define("MKVPARSER_HEADER_ONLY", to: "0"),
                 .define("MKVMUXER_HEADER_ONLY", to: "0"),
-                .define("_LIBCPP_DISABLE_AVAILABILITY", to: "1")
+                .define("_LIBCPP_DISABLE_AVAILABILITY", to: "1"),
             ],
             linkerSettings: [
                 .linkedLibrary("c++")
@@ -52,7 +55,7 @@ let package = Package(
                 .headerSearchPath("../libwebm/common"),
                 .define("MKVPARSER_HEADER_ONLY", to: "0"),
                 .define("MKVMUXER_HEADER_ONLY", to: "0"),
-                .define("_LIBCPP_DISABLE_AVAILABILITY", to: "1")
+                .define("_LIBCPP_DISABLE_AVAILABILITY", to: "1"),
             ],
             linkerSettings: [
                 .linkedLibrary("c++")
@@ -63,16 +66,16 @@ let package = Package(
             dependencies: ["CLibWebM"],
             path: "Sources/LibWebMSwift"
         ),
-                .testTarget(
+        .testTarget(
             name: "LibWebMSwiftTests",
-            dependencies: ["LibWebMSwift"],
+            dependencies: ["LibWebMSwift", .product(name: "Opus", package: "swift-opus")],
             resources: [
                 .copy("sample.webm"),
                 .copy("av1-opus.webm"),
                 .copy("video.av1"),
-                .copy("audio.opus")
+                .copy("audio.opus"),
             ]
-        )
+        ),
     ],
     cxxLanguageStandard: .cxx11
 )

@@ -1,7 +1,9 @@
 // Copyright (c) 2025, Ronan LE MEILLAT - SCTG Development. All rights reserved.
 // Licensed under the BSD 3-Clause License.
 
+import AVFoundation
 import Foundation
+import Opus
 import XCTest
 
 @testable import LibWebMSwift
@@ -1425,5 +1427,183 @@ final class LibWebMSwiftTests: XCTestCase {
         try muxer.finalize()
 
         try? FileManager.default.removeItem(at: tempFile)
+    }
+
+    func testSingleOpusAudioFrameWebMValidation() throws {
+        // Create temporary file for the WebM output
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFile = tempDir.appendingPathComponent("test_opus_audio.webm")
+
+        // Clean up any existing file
+        try? FileManager.default.removeItem(at: tempFile)
+
+        // Create muxer
+        let muxer = try WebMMuxer(filePath: tempFile.path)
+
+        // Add audio track for Opus
+        let audioTrack = try muxer.addAudioTrack(
+            samplingFrequency: 48000.0,
+            channels: 1,
+            codecId: "A_OPUS"
+        )
+
+        // Create AVAudioFormat for Opus
+        let audioFormat = AVAudioFormat(opusPCMFormat: .float32, sampleRate: 48000, channels: 1)!
+
+        // Create Opus encoder
+        let encoder = try Opus.Encoder(format: audioFormat, application: .audio)
+
+        // Create AVAudioPCMBuffer with proper Opus frame size (20ms frame = 960 samples at 48kHz)
+        let frameCount: AVAudioFrameCount = 960  // 20ms at 48kHz
+        let pcmBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: frameCount)!
+        pcmBuffer.frameLength = frameCount
+
+        // Fill with a simple sine wave
+        let frequency: Float32 = 440.0  // A4 note
+        for i in 0..<Int(frameCount) {
+            let t = Float32(i) / Float32(audioFormat.sampleRate)
+            pcmBuffer.floatChannelData![0][i] = sin(2.0 * Float32.pi * frequency * t) * 0.5
+        }
+
+        // Encode the PCM buffer to Opus
+        var opusData = Data(count: 4096)  // Pre-allocate buffer
+        _ = try encoder.encode(pcmBuffer, to: &opusData)
+
+        // Write the Opus frame to the WebM
+        try muxer.writeAudioFrame(
+            trackId: audioTrack,
+            frameData: opusData,
+            timestampNs: 0
+        )
+
+        // Finalize the WebM file
+        try muxer.finalize()
+
+        // Verify the file was created
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: tempFile.path), "WebM file should be created")
+
+        // Run mkvalidator on the generated file
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "./mkvalidator")
+        process.arguments = [tempFile.path]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+
+        try process.run()
+        process.waitUntilExit()
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8) ?? ""
+
+        // Check that mkvalidator succeeded (exit code 0)
+        XCTAssertEqual(
+            process.terminationStatus, 0, "mkvalidator should pass validation. Output: \(output)")
+
+        // Clean up
+        try? FileManager.default.removeItem(at: tempFile)
+        print("mkvalidator output:\n\(output)")
+    }
+
+    func testTwoOpusAudioFramesWebMValidation() throws {
+        // Create temporary file for the WebM output
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFile = tempDir.appendingPathComponent("test_two_opus_frames.webm")
+
+        // Clean up any existing file
+        try? FileManager.default.removeItem(at: tempFile)
+
+        // Create muxer
+        let muxer = try WebMMuxer(filePath: tempFile.path)
+
+        // Add audio track for Opus
+        let audioTrack = try muxer.addAudioTrack(
+            samplingFrequency: 48000.0,
+            channels: 1,
+            codecId: "A_OPUS"
+        )
+
+        // Create AVAudioFormat for Opus
+        let audioFormat = AVAudioFormat(opusPCMFormat: .float32, sampleRate: 48000, channels: 1)!
+
+        // Create Opus encoder
+        let encoder = try Opus.Encoder(format: audioFormat, application: .audio)
+
+        // Create AVAudioPCMBuffer with proper Opus frame size (20ms frame = 960 samples at 48kHz)
+        let frameCount: AVAudioFrameCount = 960  // 20ms at 48kHz
+
+        // First frame: sine wave
+        let pcmBuffer1 = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: frameCount)!
+        pcmBuffer1.frameLength = frameCount
+
+        // Fill with a simple sine wave
+        let frequency: Float32 = 440.0  // A4 note
+        for i in 0..<Int(frameCount) {
+            let t = Float32(i) / Float32(audioFormat.sampleRate)
+            pcmBuffer1.floatChannelData![0][i] = sin(2.0 * Float32.pi * frequency * t) * 0.5
+        }
+
+        // Encode the first PCM buffer to Opus
+        var opusData1 = Data(count: 4096)  // Pre-allocate buffer
+        _ = try encoder.encode(pcmBuffer1, to: &opusData1)
+
+        // Second frame: silence
+        let pcmBuffer2 = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: frameCount)!
+        pcmBuffer2.frameLength = frameCount
+
+        // Fill with silence (zeros)
+        for i in 0..<Int(frameCount) {
+            pcmBuffer2.floatChannelData![0][i] = 0.0
+        }
+
+        // Encode the second PCM buffer to Opus
+        var opusData2 = Data(count: 4096)  // Pre-allocate buffer
+        _ = try encoder.encode(pcmBuffer2, to: &opusData2)
+
+        // Write the first Opus frame to the WebM (timestamp 0)
+        try muxer.writeAudioFrame(
+            trackId: audioTrack,
+            frameData: opusData1,
+            timestampNs: 0
+        )
+
+        // Write the second Opus frame to the WebM (timestamp 20ms = 20,000,000 ns)
+        try muxer.writeAudioFrame(
+            trackId: audioTrack,
+            frameData: opusData2,
+            timestampNs: 20_000_000
+        )
+
+        // Finalize the WebM file
+        try muxer.finalize()
+
+        // Verify the file was created
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: tempFile.path), "WebM file should be created")
+
+        // Run mkvalidator on the generated file
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "./mkvalidator")
+        process.arguments = [tempFile.path]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+
+        try process.run()
+        process.waitUntilExit()
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8) ?? ""
+
+        // Check that mkvalidator succeeded (exit code 0)
+        XCTAssertEqual(
+            process.terminationStatus, 0, "mkvalidator should pass validation. Output: \(output)")
+
+        // Clean up
+        try? FileManager.default.removeItem(at: tempFile)
+        print("mkvalidator output:\n\(output)")
     }
 }
