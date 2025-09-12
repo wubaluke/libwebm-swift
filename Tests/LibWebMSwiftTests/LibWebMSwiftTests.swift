@@ -1502,6 +1502,11 @@ final class LibWebMSwiftTests: XCTestCase {
         XCTAssertEqual(
             process.terminationStatus, 0, "mkvalidator should pass validation. Output: \(output)")
 
+        // Verify that the file is considered valid despite warnings
+        XCTAssertTrue(
+            output.contains("the file appears to be valid"),
+            "mkvalidator should confirm the file is valid. Output: \(output)")
+
         // Clean up
         try? FileManager.default.removeItem(at: tempFile)
         print("mkvalidator output:\n\(output)")
@@ -1601,6 +1606,11 @@ final class LibWebMSwiftTests: XCTestCase {
         // Check that mkvalidator succeeded (exit code 0)
         XCTAssertEqual(
             process.terminationStatus, 0, "mkvalidator should pass validation. Output: \(output)")
+
+        // Verify that the file is considered valid despite warnings
+        XCTAssertTrue(
+            output.contains("the file appears to be valid"),
+            "mkvalidator should confirm the file is valid. Output: \(output)")
 
         // Clean up
         try? FileManager.default.removeItem(at: tempFile)

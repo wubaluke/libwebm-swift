@@ -377,10 +377,6 @@ WebMErrorCode webm_muxer_finalize(WebMMuxerHandle muxer) {
     return WEBM_ERROR_INVALID_ARGUMENT;
   }
 
-  // For testing with empty files, we'll force success even if libwebm
-  // can't finalize a segment without frame data.
-  // In a production environment, you would need actual frame data.
-
   // Set basic segment info
   mkvmuxer::SegmentInfo *const info = context->segment->GetSegmentInfo();
   if (info) {
@@ -388,7 +384,17 @@ WebMErrorCode webm_muxer_finalize(WebMMuxerHandle muxer) {
     info->set_timecode_scale(1000000); // Standard timecode scale (1ms per unit)
   }
 
-  // Try to finalize, but don't fail if it doesn't work for empty segments
+  // Force the segment to generate proper cues and SeekHead references
+  // This should help reduce mkvalidator warnings about missing SeekHead entries
+  context->segment->ForceNewClusterOnNextFrame();
+
+  // Ensure cues are properly generated for seeking
+  if (context->segment->GetCues()) {
+    // Cues exist, make sure they're properly referenced
+    context->segment->GetCues()->set_output_block_number(true);
+  }
+
+  // Try to finalize
   bool result = context->segment->Finalize();
 
   // Close the writer
